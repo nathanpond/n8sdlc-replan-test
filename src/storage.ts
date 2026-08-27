@@ -1,8 +1,10 @@
 // The persistence boundary (see the storage-boundary invariant): this is the
-// only module allowed to touch the filesystem. All data lives in one JSON file
-// `{ "version": 1, "notes": { "<id>": Note } }`, loaded once into memory;
-// every mutation rewrites the whole file atomically (tmp + rename).
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+// only module allowed to touch the persistence layer. Data lives in a SQLite
+// database (via node:sqlite) at the configured path. On startup, if a legacy
+// JSON store (`<name>.json` next to the DB) exists and the DB is empty, its
+// notes are imported once; the JSON file itself is never modified.
+import { DatabaseSync } from "node:sqlite";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
@@ -14,12 +16,13 @@ export interface Note {
   createdAt: string; // ISO-8601
 }
 
-interface StoreFile {
+/** Legacy JSON store layout (v1): `{ "version": 1, "notes": { "<id>": Note } }`. */
+interface LegacyStoreFile {
   version: 1;
   notes: Record<string, Note>;
 }
 
-function isStoreFile(value: unknown): value is StoreFile {
+function isLegacyStoreFile(value: unknown): value is LegacyStoreFile {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -29,54 +32,123 @@ function isStoreFile(value: unknown): value is StoreFile {
   );
 }
 
+interface NoteRow {
+  id: string;
+  title: string;
+  body: string;
+  tags: string; // JSON-encoded string[]
+  createdAt: string;
+}
+
+function rowToNote(row: NoteRow): Note {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    tags: JSON.parse(row.tags) as string[],
+    createdAt: row.createdAt,
+  };
+}
+
 export class Storage {
-  private constructor(
-    private readonly file: string,
-    private readonly notes: Map<string, Note>,
-  ) {}
+  private constructor(private readonly db: DatabaseSync) {}
 
   /**
-   * Open the store at `file`. A missing file bootstraps an empty store (parent
-   * directory created); a file that exists but cannot be parsed is a hard
-   * startup error naming the path — user data is never silently overwritten.
+   * Open the SQLite store at `file` (parent directory created as needed).
+   * A file that exists but is not a SQLite database is a hard startup error
+   * naming the path — user data is never silently overwritten.
+   *
+   * One-time migration: if a legacy JSON store sits next to the DB (same
+   * basename with a `.json` extension, e.g. `data/notes.json` beside
+   * `data/notes.db`) and the DB holds no notes, its notes are imported in
+   * their original order. The JSON file is left untouched afterwards.
    */
-  static async open(file: string): Promise<Storage> {
-    let raw: string;
+  static open(file: string): Promise<Storage> {
+    // Work is synchronous (node:sqlite is sync), but failures must surface as
+    // a rejected promise so callers' await/.rejects semantics hold.
     try {
-      raw = await readFile(file, "utf8");
+      return Promise.resolve(Storage.openSync(file));
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
-      await mkdir(path.dirname(file), { recursive: true });
-      const storage = new Storage(file, new Map());
-      await storage.persist();
-      return storage;
+      return Promise.reject(err instanceof Error ? err : new Error(String(err)));
     }
-    let parsed: unknown;
+  }
+
+  private static openSync(file: string): Storage {
+    mkdirSync(path.dirname(file), { recursive: true });
+    let db: DatabaseSync;
     try {
-      parsed = JSON.parse(raw);
+      db = new DatabaseSync(file);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS notes (
+          id        TEXT PRIMARY KEY,
+          title     TEXT NOT NULL,
+          body      TEXT NOT NULL,
+          tags      TEXT NOT NULL,
+          createdAt TEXT NOT NULL
+        )
+      `);
     } catch (err) {
       throw new Error(
-        `noteapi store at ${file} is not valid JSON (${(err as Error).message}); refusing to overwrite it`,
+        `noteapi store at ${file} is not a usable SQLite database (${(err as Error).message}); refusing to overwrite it`,
         { cause: err },
       );
     }
-    if (!isStoreFile(parsed)) {
+    const storage = new Storage(db);
+    try {
+      storage.migrateFromLegacyJson(file);
+    } catch (err) {
+      db.close();
+      throw err;
+    }
+    return storage;
+  }
+
+  /** Import notes from the legacy JSON store, if present and the DB is empty. */
+  private migrateFromLegacyJson(file: string): void {
+    const parsed = path.parse(file);
+    const legacy = path.join(parsed.dir, `${parsed.name}.json`);
+    if (legacy === file || !existsSync(legacy)) return;
+    const { n } = this.db.prepare("SELECT COUNT(*) AS n FROM notes").get() as { n: number };
+    if (n > 0) return;
+
+    let data: unknown;
+    try {
+      data = JSON.parse(readFileSync(legacy, "utf8"));
+    } catch (err) {
       throw new Error(
-        `noteapi store at ${file} has an unrecognized shape; refusing to overwrite it`,
+        `legacy noteapi store at ${legacy} is not valid JSON (${(err as Error).message}); refusing to import it`,
+        { cause: err },
       );
     }
-    return new Storage(file, new Map(Object.entries(parsed.notes)));
+    if (!isLegacyStoreFile(data)) {
+      throw new Error(
+        `legacy noteapi store at ${legacy} has an unrecognized shape; refusing to import it`,
+      );
+    }
+    const insert = this.db.prepare(
+      "INSERT INTO notes (id, title, body, tags, createdAt) VALUES (?, ?, ?, ?, ?)",
+    );
+    this.db.exec("BEGIN");
+    try {
+      // JSON key order is insertion order; inserting in that order preserves
+      // the legacy list tie-break (rowid keeps insertion order).
+      for (const note of Object.values(data.notes)) {
+        insert.run(
+          note.id,
+          note.title,
+          note.body,
+          JSON.stringify(Array.isArray(note.tags) ? note.tags : []),
+          note.createdAt,
+        );
+      }
+      this.db.exec("COMMIT");
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
   }
 
-  /** Atomic whole-store write: serialize → `<file>.tmp` (same dir) → rename. */
-  private async persist(): Promise<void> {
-    const data: StoreFile = { version: 1, notes: Object.fromEntries(this.notes) };
-    const tmp = `${this.file}.tmp`;
-    await writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
-    await rename(tmp, this.file);
-  }
-
-  async createNote(input: { title: string; body: string }): Promise<Note> {
+  createNote(input: { title: string; body: string }): Promise<Note> {
     const note: Note = {
       id: randomUUID(),
       title: input.title,
@@ -84,30 +156,39 @@ export class Storage {
       tags: [],
       createdAt: new Date().toISOString(),
     };
-    this.notes.set(note.id, note);
-    await this.persist();
-    return note;
+    this.db
+      .prepare("INSERT INTO notes (id, title, body, tags, createdAt) VALUES (?, ?, ?, ?, ?)")
+      .run(note.id, note.title, note.body, JSON.stringify(note.tags), note.createdAt);
+    return Promise.resolve(note);
   }
 
   getNote(id: string): Note | undefined {
-    return this.notes.get(id);
+    const row = this.db.prepare("SELECT * FROM notes WHERE id = ?").get(id) as
+      | NoteRow
+      | undefined;
+    return row ? rowToNote(row) : undefined;
   }
 
   /** Remove a note permanently; returns false when the id is unknown. */
-  async deleteNote(id: string): Promise<boolean> {
-    if (!this.notes.delete(id)) return false;
-    await this.persist();
-    return true;
+  deleteNote(id: string): Promise<boolean> {
+    const { changes } = this.db.prepare("DELETE FROM notes WHERE id = ?").run(id);
+    return Promise.resolve(changes > 0);
   }
 
   /**
    * All notes, newest first (createdAt descending). Tie-break: most recently
-   * created first — reverse insertion order, which the JSON file's key order
-   * preserves across reloads.
+   * created first — reverse insertion order, which rowid preserves across
+   * restarts (and the JSON migration inserts in legacy key order).
    */
   listNotes(): Note[] {
-    return [...this.notes.values()]
-      .reverse() // stable sort keeps reverse-insertion order within equal timestamps
-      .sort((a, b) => (a.createdAt > b.createdAt ? -1 : a.createdAt < b.createdAt ? 1 : 0));
+    const rows = this.db
+      .prepare("SELECT * FROM notes ORDER BY createdAt DESC, rowid DESC")
+      .all() as unknown as NoteRow[];
+    return rows.map(rowToNote);
+  }
+
+  /** Close the underlying database handle (used by tests; idempotent-safe boot code needs no call). */
+  close(): void {
+    this.db.close();
   }
 }

@@ -1,5 +1,5 @@
 // Integration tests for the HTTP API (#10): real server on an ephemeral port,
-// NOTEAPI_FILE pointed at a temp file.
+// storage pointed at a temp SQLite database.
 import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -20,7 +20,7 @@ async function boot(file: string): Promise<string> {
 }
 
 async function tempStore(): Promise<string> {
-  return path.join(await mkdtemp(path.join(os.tmpdir(), "noteapi-http-")), "notes.json");
+  return path.join(await mkdtemp(path.join(os.tmpdir(), "noteapi-http-")), "notes.db");
 }
 
 afterEach(async () => {

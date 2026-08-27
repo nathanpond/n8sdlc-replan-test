@@ -1,7 +1,7 @@
 {
   "name": "noteapi",
   "version": "1.0.0",
-  "description": "Minimal local HTTP notes service in TypeScript (node:http, JSON-file storage)",
+  "description": "Minimal local HTTP notes service in TypeScript (node:http, SQLite storage via node:sqlite)",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

@@ -19,13 +19,14 @@ export default tseslint.config(
   },
   {
     // Storage-boundary invariant (#9): only src/storage.ts may touch the
-    // filesystem. Bare "fs"/"fs/promises" resolve to the same modules as the
-    // node: forms, so they are restricted too.
+    // persistence layer (filesystem or SQLite database). Bare "fs"/"fs/promises"
+    // resolve to the same modules as the node: forms, so they are restricted
+    // too; "node:sqlite" has no bare form.
     rules: {
       "no-restricted-imports": [
         "error",
         {
-          paths: ["node:fs", "node:fs/promises", "fs", "fs/promises"].map((name) => ({
+          paths: ["node:fs", "node:fs/promises", "fs", "fs/promises", "node:sqlite"].map((name) => ({
             name,
             message: "All persistence goes through src/storage.ts (storage-boundary invariant).",
           })),
