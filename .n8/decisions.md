@@ -25,3 +25,16 @@ One `##` section per skill run; ad-hoc (outside-the-workflow) changes get an `##
   **Why:** Brief's milestone list maps cleanly to capabilities; audit findings attach to the epics they concern.
 - **Decision:** Both invariants marked test-enforced; storage-boundary guard planned as a lint restriction on `node:fs` imports (only `src/storage.ts` may import it).
   **Why:** Expressible as build-time checks; prose rules rot.
+
+## /n8-plan M0-M3 — 2026-08-27
+
+- **Decision:** Note model fixed as `{id: uuid, title, body, tags: string[], createdAt: ISO-8601}`; title required, tags lowercase/deduped.
+  **Why:** More than one defensible shape; execution must not guess. Simplest model covering all planned endpoints.
+- **Decision:** Export/import endpoints named `GET /export` / `POST /import`; import uses **replace** semantics with full validation before a single atomic write.
+  **Why:** Brief left endpoint names and merge-vs-replace open; replace is the simpler restore-from-backup semantic (brief: simpler option, log it).
+- **Decision:** JSON file layout `{version:1, notes:{<id>:Note}}`, atomic writes via tmp+rename, whole-file rewrite per mutation, O(n) search — stated concretely in subtasks #11/#15/#19 and story ACs.
+  **Why:** v1 explicitly excludes concurrency; the store is small; concrete mechanics keep execution unblocked.
+- **Decision:** Cross-milestone dependencies wired only where data-real (M2/M3 stories blocked by #10, #16 by #14+#12, #20 by #18, #21 by #14); no blanket edges to CI stories.
+  **Why:** Milestones execute in order anyway; edges carry real ordering, not ceremony.
+- **Decision:** No project-specific skills proposed; audit emphases recorded in M4 description (data integrity, input robustness, storage-boundary guard, light performance).
+  **Why:** Small local service; no plugin system, content format, or deploy runbook to earn a skill.
