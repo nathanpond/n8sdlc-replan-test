@@ -57,6 +57,13 @@ async function handle(storage: Storage, req: IncomingMessage, res: ServerRespons
       if (!note) return sendJson(res, 404, { error: "not found" });
       return sendJson(res, 200, note);
     }
+    if (segments.length === 2 && req.method === "DELETE") {
+      const deleted = await storage.deleteNote(decodeURIComponent(segments[1] ?? ""));
+      if (!deleted) return sendJson(res, 404, { error: "not found" });
+      res.writeHead(204);
+      res.end();
+      return;
+    }
   }
   sendJson(res, 404, { error: "not found" });
 }

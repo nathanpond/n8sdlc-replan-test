@@ -50,3 +50,18 @@ One `##` section per skill run; ad-hoc (outside-the-workflow) changes get an `##
 - **Decision:** Added `"types": ["node"]` to `tsconfig.json`.
   **Why:** Rule 3 blocker — `tsc` (TypeScript 6.0.3) could not resolve `node:*` builtin module types despite `@types/node` being installed; the compiler's own suggested fix. Without it no code importing node builtins typechecks.
   **Issue:** #9 (surfaced writing the guard test)
+
+### M1 entries
+
+- **Decision:** Scaffold placeholder (`NAME` export in `src/index.ts` + `test/smoke.test.ts`) removed when the real entrypoint landed.
+  **Why:** The entrypoint now has boot side effects; a test importing it would start a server. The smoke test's only purpose (scaffold sanity) is superseded by 18 real tests.
+  **Issue:** #10
+- **Decision:** List tie-break for identical `createdAt`: most recently created first (reverse insertion order; deterministic across reloads via JSON key order).
+  **Why:** Delegated in #12's Claude's Discretion; "newest first" extended to ties is the least surprising reading.
+  **Issue:** #12
+- **Decision:** `DELETE` returns 204 with empty body.
+  **Why:** #13's Claude's Discretion says "use 204" — followed as prescribed.
+  **Issue:** #13
+- **Decision:** Added a 500 catch-all around route handling (unhandled handler error → JSON 500, process survives).
+  **Why:** Rule 2 — without it any handler rejection crashes or hangs the server; basic correctness for an HTTP service, not a feature.
+  **Issue:** #10

@@ -118,3 +118,30 @@ describe("GET /notes (list)", () => {
     expect(relisted).toEqual(listed);
   });
 });
+
+describe("DELETE /notes/:id", () => {
+  it("deletes a note permanently, surviving restart", async () => {
+    const file = await tempStore();
+    const base = await boot(file);
+    const created = await fetch(`${base}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ title: "doomed" }),
+    });
+    const note = (await created.json()) as Note;
+
+    const del = await fetch(`${base}/notes/${note.id}`, { method: "DELETE" });
+    expect(del.status).toBe(204);
+    expect((await fetch(`${base}/notes/${note.id}`)).status).toBe(404);
+    expect((await (await fetch(`${base}/notes`)).json()) as Note[]).toEqual([]);
+
+    const rebooted = await boot(file); // gone from the file too
+    expect((await fetch(`${rebooted}/notes/${note.id}`)).status).toBe(404);
+  });
+
+  it("returns 404 with a JSON error for an unknown id", async () => {
+    const base = await boot(await tempStore());
+    const res = await fetch(`${base}/notes/nope`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "not found" });
+  });
+});

@@ -93,6 +93,13 @@ export class Storage {
     return this.notes.get(id);
   }
 
+  /** Remove a note permanently; returns false when the id is unknown. */
+  async deleteNote(id: string): Promise<boolean> {
+    if (!this.notes.delete(id)) return false;
+    await this.persist();
+    return true;
+  }
+
   /**
    * All notes, newest first (createdAt descending). Tie-break: most recently
    * created first — reverse insertion order, which the JSON file's key order
