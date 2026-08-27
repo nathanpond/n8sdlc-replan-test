@@ -18,3 +18,10 @@ One `##` section per skill run; ad-hoc (outside-the-workflow) changes get an `##
   **Why:** Labels were the untouched GitHub defaults, not a curated taxonomy; no issue history exists. No labels were deleted.
 - **Decision:** `area:*` set is `api, storage, ci, docs`; `area:storage` maps to `src/storage.ts` rather than a directory.
   **Why:** The storage module is the project's central invariant boundary (all persistence goes through it), so it earns its own filter even as a single file.
+
+## /n8-roadmap — 2026-08-27
+
+- **Decision:** Four epics (#1 Infra & CI, #2 Core notes CRUD, #3 Tags & search, #4 Export/import/stats) mapped 1:1 to milestones M0–M3; M4: Audit has no epic.
+  **Why:** Brief's milestone list maps cleanly to capabilities; audit findings attach to the epics they concern.
+- **Decision:** Both invariants marked test-enforced; storage-boundary guard planned as a lint restriction on `node:fs` imports (only `src/storage.ts` may import it).
+  **Why:** Expressible as build-time checks; prose rules rot.
