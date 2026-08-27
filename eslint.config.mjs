@@ -17,4 +17,9 @@ export default tseslint.config(
     files: ["**/*.mjs"],
     ...tseslint.configs.disableTypeChecked,
   },
+  {
+    // Scratch-only: downgrade to a warning so CI's --max-warnings 0 is exercised.
+    files: ["src/scratch-warn.ts"],
+    rules: { "@typescript-eslint/no-unused-vars": "warn" },
+  },
 );
