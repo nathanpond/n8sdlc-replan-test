@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+# Least-privilege: the gate only reads the repo.
+permissions:
+  contents: read
+
+# Superseded PR builds are waste; cancel them.
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      # Invariant: lint warnings are errors in CI.
+      - run: npx eslint . --max-warnings 0
+      - run: npx vitest run
