@@ -65,3 +65,9 @@ One `##` section per skill run; ad-hoc (outside-the-workflow) changes get an `##
 - **Decision:** Added a 500 catch-all around route handling (unhandled handler error → JSON 500, process survives).
   **Why:** Rule 2 — without it any handler rejection crashes or hangs the server; basic correctness for an HTTP service, not a feature.
   **Issue:** #10
+
+## Ad-hoc — 2026-08-27
+
+- **Change:** Storage engine switched from the single JSON file (`{version:1, notes:{...}}`, atomic tmp+rename writes) to a SQLite database via Node's built-in `node:sqlite` (`NOTEAPI_FILE` default now `./data/notes.db`). The `src/storage.ts` interface is unchanged, so the HTTP layer did not change. One-time startup migration: a legacy `notes.json` next to the DB is imported when the DB is empty, then left untouched. The storage-boundary lint guard now also restricts `node:sqlite` imports to `src/storage.ts` (same spirit as the bare-`fs` extension logged under #9).
+  **Why:** User decision this session: the JSON file won't cut it; move to SQLite using the built-in module (no new dependency — CI's Node 22.x and local Node 24 both ship unflagged `node:sqlite`).
+  **Affects:** M2 Tags & search — #15 ("Default missing tags on JSON-file load; reuse the atomic persist") is stale as written (no JSON load or atomic persist to reuse; the migration already defaults missing tags), and #14/#16/#17 ACs that lean on JSON-file mechanics. M3 Export/import/stats — #19 ("Assemble the dump deterministically from the JSON-file store") and the /n8-plan decision that import does "a single atomic write" of the JSON file (#18/#20/#21) need re-stating against SQLite. The /n8-plan "JSON file layout" decision is superseded. Note: the JSON dump *format* for export/import can stay; only the store it reads/writes changed.

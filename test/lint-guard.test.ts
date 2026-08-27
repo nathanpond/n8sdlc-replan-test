@@ -1,5 +1,6 @@
-// Guard test for the storage-boundary lint rule (#9): importing node:fs outside
-// src/storage.ts must be a lint error; src/storage.ts itself is exempt.
+// Guard test for the storage-boundary lint rule (#9): importing node:fs or
+// node:sqlite outside src/storage.ts must be a lint error; src/storage.ts
+// itself is exempt.
 // Fixtures are linted in-memory with type-aware linting disabled (they don't
 // exist on disk for the project service); no-restricted-imports needs no types.
 import path from "node:path";
@@ -25,15 +26,16 @@ describe("storage-boundary lint guard", () => {
   const fixture = (specifier: string) =>
     `import fs from "${specifier}";\nexport const present = typeof fs;\n`;
 
-  it.each(["node:fs", "node:fs/promises", "fs", "fs/promises"])(
+  it.each(["node:fs", "node:fs/promises", "fs", "fs/promises", "node:sqlite"])(
     "flags %s imported outside src/storage.ts",
     async (specifier) => {
       expect(await restrictedImportErrors(fixture(specifier), "src/not-storage.ts")).toBeGreaterThan(0);
     },
   );
 
-  it("allows node:fs inside src/storage.ts", async () => {
+  it("allows node:fs and node:sqlite inside src/storage.ts", async () => {
     expect(await restrictedImportErrors(fixture("node:fs"), "src/storage.ts")).toBe(0);
     expect(await restrictedImportErrors(fixture("node:fs/promises"), "src/storage.ts")).toBe(0);
+    expect(await restrictedImportErrors(fixture("node:sqlite"), "src/storage.ts")).toBe(0);
   });
 });
