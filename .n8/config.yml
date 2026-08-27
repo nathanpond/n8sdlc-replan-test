@@ -1,0 +1,18 @@
+version: 1
+stack: typescript
+initialized: 2026-08-27
+wiki: opted-out
+repo: nathanpond/n8sdlc-replan-test
+visibility: public
+deployment:
+  dev: local (npm start)
+  stage: none — local single-user service, no hosted environments
+  production: tagged GitHub release
+  notes: No deploy jobs; the service runs locally against a JSON data file.
+ci:
+  provider: github-actions
+  on_pr: [typecheck, lint, test]
+  release: none yet — tagging a release is manual
+context7: declined
+security_findings: issues
+areas: [api, storage, ci, docs]

@@ -1,0 +1,24 @@
+name: Epic
+description: Large body of work with epic-level acceptance criteria
+labels: ["epic"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One paragraph describing the capability this epic delivers.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria (epic level)
+      description: Checklist of epic-level criteria.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Context, constraints, out-of-scope.

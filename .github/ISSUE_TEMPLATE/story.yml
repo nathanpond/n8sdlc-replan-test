@@ -1,0 +1,40 @@
+name: Story
+description: Describes WHAT to build, with testable acceptance criteria
+labels: ["feature"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: What to build and why — no implementation detail.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: must-haves
+    attributes:
+      label: Must-haves
+      description: "truths (user-observable statements), artifacts (files), key_links (wiring)."
+  - type: textarea
+    id: demo
+    attributes:
+      label: Demo
+      description: A concrete ~60-second user script (user-facing stories only).
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test plan
+      description: Automated tests written as part of this story.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: "Blocked by: #N lines, if not using native dependencies."
