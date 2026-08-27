@@ -4,8 +4,10 @@ Minimal local HTTP notes service in TypeScript on `node:http` (no framework). St
 
 ## Invariants
 
-- ALL storage access goes through the `src/storage.ts` interface — no other module touches the persistence layer directly.
-- Lint warnings are errors in CI (`eslint --max-warnings 0`).
+- **test-enforced** — ALL storage access goes through the `src/storage.ts` interface; no other module touches the persistence layer (filesystem/data file) directly. Guard: lint rule restricting `node:fs` imports to `src/storage.ts` (planned in M0).
+- **test-enforced** — Lint warnings are errors in CI (`eslint --max-warnings 0` in the CI workflow).
+
+Amending an invariant is a user decision and plan drift by definition: log it as an `## Ad-hoc` entry in `.n8/decisions.md` and run `/n8-replan`.
 
 ## n8SDLC project
 
