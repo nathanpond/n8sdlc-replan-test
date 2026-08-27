@@ -38,3 +38,15 @@ One `##` section per skill run; ad-hoc (outside-the-workflow) changes get an `##
   **Why:** Milestones execute in order anyway; edges carry real ordering, not ceremony.
 - **Decision:** No project-specific skills proposed; audit emphases recorded in M4 description (data integrity, input robustness, storage-boundary guard, light performance).
   **Why:** Small local service; no plugin system, content format, or deploy runbook to earn a skill.
+
+## /n8-exec M0,M1 — 2026-08-27
+
+- **Decision:** `test/**` is exempt from the storage-boundary lint rule (deviation from #9's literal AC "any file except src/storage.ts fails lint").
+  **Why:** M1's planned tests (#11: tmp-file/corrupt-file/atomicity checks; #10/#13: on-disk persistence checks) must inspect the data file directly — the AC as written would make the planned test plans unwritable. The invariant governs service code; the exemption carries a rationale comment in `eslint.config.mjs`. Low cost, reversible.
+  **Issue:** #9
+- **Decision:** Restricted bare `fs`/`fs/promises` specifiers in addition to the AC's `node:fs`/`node:fs/promises`.
+  **Why:** They resolve to the same modules; leaving them open makes the guard trivially bypassable. Rule 2 (missing critical functionality within story scope).
+  **Issue:** #9
+- **Decision:** Added `"types": ["node"]` to `tsconfig.json`.
+  **Why:** Rule 3 blocker — `tsc` (TypeScript 6.0.3) could not resolve `node:*` builtin module types despite `@types/node` being installed; the compiler's own suggested fix. Without it no code importing node builtins typechecks.
+  **Issue:** #9 (surfaced writing the guard test)
