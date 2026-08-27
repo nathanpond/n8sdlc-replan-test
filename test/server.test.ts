@@ -91,3 +91,30 @@ describe("POST /notes + GET /notes/:id", () => {
     expect(((await fetched.json()) as Note).body).toBe("still here");
   });
 });
+
+describe("GET /notes (list)", () => {
+  it("returns [] for an empty store", async () => {
+    const base = await boot(await tempStore());
+    const res = await fetch(`${base}/notes`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("lists all notes newest first, also after a restart", async () => {
+    const file = await tempStore();
+    const base = await boot(file);
+    const titles = ["one", "two", "three"];
+    for (const title of titles) {
+      await fetch(`${base}/notes`, { method: "POST", body: JSON.stringify({ title }) });
+    }
+    const listed = (await (await fetch(`${base}/notes`)).json()) as Note[];
+    expect(listed.map((n) => n.title)).toEqual(["three", "two", "one"]);
+    // Order holds under both createdAt-desc and the reverse-insertion tie-break.
+    const sorted = [...listed].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    expect(sorted.map((n) => n.id)).toEqual(listed.map((n) => n.id));
+
+    const rebooted = await boot(file);
+    const relisted = (await (await fetch(`${rebooted}/notes`)).json()) as Note[];
+    expect(relisted).toEqual(listed);
+  });
+});

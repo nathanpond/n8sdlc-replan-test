@@ -44,6 +44,9 @@ async function handle(storage: Storage, req: IncomingMessage, res: ServerRespons
   const segments = url.pathname.split("/").filter((s) => s !== "");
 
   if (segments[0] === "notes") {
+    if (segments.length === 1 && req.method === "GET") {
+      return sendJson(res, 200, storage.listNotes());
+    }
     if (segments.length === 1 && req.method === "POST") {
       const input = parseCreate(await readBody(req));
       if ("error" in input) return sendJson(res, 400, { error: input.error });

@@ -92,4 +92,15 @@ export class Storage {
   getNote(id: string): Note | undefined {
     return this.notes.get(id);
   }
+
+  /**
+   * All notes, newest first (createdAt descending). Tie-break: most recently
+   * created first — reverse insertion order, which the JSON file's key order
+   * preserves across reloads.
+   */
+  listNotes(): Note[] {
+    return [...this.notes.values()]
+      .reverse() // stable sort keeps reverse-insertion order within equal timestamps
+      .sort((a, b) => (a.createdAt > b.createdAt ? -1 : a.createdAt < b.createdAt ? 1 : 0));
+  }
 }
