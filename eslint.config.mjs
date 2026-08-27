@@ -17,4 +17,32 @@ export default tseslint.config(
     files: ["**/*.mjs"],
     ...tseslint.configs.disableTypeChecked,
   },
+  {
+    // Storage-boundary invariant (#9): only src/storage.ts may touch the
+    // filesystem. Bare "fs"/"fs/promises" resolve to the same modules as the
+    // node: forms, so they are restricted too.
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: ["node:fs", "node:fs/promises", "fs", "fs/promises"].map((name) => ({
+            name,
+            message: "All persistence goes through src/storage.ts (storage-boundary invariant).",
+          })),
+        },
+      ],
+    },
+  },
+  {
+    // Exempt: src/storage.ts IS the persistence boundary the rule protects.
+    files: ["src/storage.ts"],
+    rules: { "no-restricted-imports": "off" },
+  },
+  {
+    // Exempt: tests must inspect the data file directly (temp stores, atomic-write
+    // and corruption checks) to prove storage behavior; the invariant governs
+    // service code, not its proofs.
+    files: ["test/**"],
+    rules: { "no-restricted-imports": "off" },
+  },
 );
